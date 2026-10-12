@@ -190,7 +190,9 @@ static DWORD WINAPI voice_network_worker(void *unused) {
             voice_job *job = &g_async_jobs[i];
             if (job->phase != VOICE_WAITING) continue;
             if (!voice_current_locked(job) || now >= job->until) {
-                job->cancelled = !voice_current_locked(job); job->phase = VOICE_READY; continue;
+                job->cancelled = !voice_current_locked(job);
+                if (!job->cancelled) job->retryable = TRUE;
+                job->phase = VOICE_READY; continue;
             }
             if (job->next <= now) {
                 if (selected == VOICE_ASYNC_LIMIT || job->next < g_async_jobs[selected].next) selected = i;
@@ -222,7 +224,7 @@ static DWORD WINAPI voice_network_worker(void *unused) {
             DWORD delay = (500U + (DWORD)(job->serial % 251U)) << shift;
             if (delay > 4000U) delay = 4000U;
             if (retry > delay) delay = retry;
-            job->retryable = !valid && (voice_retryable(status) || transport_failure);
+            job->retryable = (valid && now >= job->until) || (!valid && (voice_retryable(status) || transport_failure));
             if (job->retryable) job->next = now + delay;
             if (voice_current_locked(job) && valid && now < job->until) {
                 job->grant = work.grant; job->valid = TRUE; job->phase = VOICE_READY;
@@ -281,7 +283,7 @@ static int voice_async_enqueue(void *request, uint32_t type, int *count, uint64_
         const voice_job *job = &g_async_jobs[i];
         if (job->phase == VOICE_EMPTY && slot == VOICE_ASYNC_LIMIT) slot = i;
         if (job->phase != VOICE_EMPTY && !job->cancelled &&
-            (job->request == request || (job->type == type && wcscmp(job->channel, channel) == 0))) {
+            (job->request == request || ((job->type == type || (job->type != REQUEST_LOGIN && type != REQUEST_LOGIN)) && wcscmp(job->channel, channel) == 0))) {
             ReleaseSRWLockExclusive(&g_async_lock); return VOICE_ERROR;
         }
     }
@@ -394,6 +396,7 @@ static void *voice_async_poll(void) {
     AcquireSRWLockExclusive(&g_async_lock);
     for (unsigned i = 0; i < VOICE_ASYNC_LIMIT; ++i) if (g_async_jobs[i].phase == VOICE_READY) {
         slot = i; work = g_async_jobs[i];
+        if (work.valid && voice_current_locked(&work) && GetTickCount64() >= work.until) work.retryable = TRUE;
         work.valid = work.valid && voice_current_locked(&work) && GetTickCount64() < work.until;
         g_async_jobs[i].phase = VOICE_ISSUED; g_async_jobs[i].failure = NULL; break;
     }
@@ -401,6 +404,7 @@ static void *voice_async_poll(void) {
     if (slot == VOICE_ASYNC_LIMIT) return NULL;
     BOOL mutated = FALSE;
     AcquireSRWLockExclusive(&g_voice_lock);
+    if (work.valid && work.epoch == g_login_epoch && work.grant.expires <= unix_time_seconds()) work.retryable = TRUE;
     if (work.valid && work.epoch == g_login_epoch && work.grant.expires > unix_time_seconds()) {
         if (work.type == REQUEST_LOGIN) mutated = mutate_login(work.request, &work.grant);
         else if (work.type == REQUEST_SESSION) mutated = mutate_join(work.request, SESSION_REQUEST_BYTES, SESSION_URI_OFFSET, SESSION_TOKEN_OFFSET, &work.grant);
@@ -473,7 +477,7 @@ static BOOL voice_async_observe_response(void *message) {
     int32_t sdk_status = 0; uint32_t request_type = 0U;
     AcquireSRWLockExclusive(&g_async_lock);
     for (unsigned i = 0; i < VOICE_ASYNC_LIMIT; ++i)
-        if (g_voice_controls[i] == request) { g_voice_controls[i] = NULL; internal = TRUE; break; }
+        if (request != NULL && g_voice_controls[i] == request) { g_voice_controls[i] = NULL; internal = TRUE; break; }
     for (unsigned i = 0; i < VOICE_ASYNC_LIMIT; ++i) {
         voice_job *job = &g_async_jobs[i];
         if (job->phase == VOICE_ISSUED && job->request == request) {
@@ -640,14 +644,24 @@ static void voice_async_rejoin(void) {
     typedef int (__cdecl *create_fn)(void **);
     create_fn create = (create_fn)(uintptr_t)GetProcAddress(g_original_module, "vx_req_sessiongroup_add_session_create");
     void *request = NULL; int count = 0;
-    if (create == NULL || create(&request) != 0 || request == NULL) return;
-    char channel[64]; for (unsigned i = 0; i < 64U; ++i) channel[i] = (char)snapshot.channel[i];
-    char *group = g_strdup(snapshot.group), *uri = g_strdup(channel);
-    write_pointer(request, 0x30U, group); write_pointer(request, SESSIONGROUP_URI_OFFSET, uri);
-    memcpy((char *)request + 0x50U, &snapshot.connect_audio, 4U);
-    memcpy((char *)request + 0x5cU, &snapshot.connect_text, 4U);
-    if (group == NULL || uri == NULL || voice_async_enqueue(request, REQUEST_SESSIONGROUP_ADD, &count, snapshot.generation) != 0)
-        g_async_destroy_request(request);
+    if (create != NULL && create(&request) == 0 && request != NULL) {
+        char channel[64]; for (unsigned i = 0; i < 64U; ++i) channel[i] = (char)snapshot.channel[i];
+        char *group = g_strdup(snapshot.group), *uri = g_strdup(channel);
+        write_pointer(request, 0x30U, group); write_pointer(request, SESSIONGROUP_URI_OFFSET, uri);
+        memcpy((char *)request + 0x50U, &snapshot.connect_audio, 4U);
+        memcpy((char *)request + 0x5cU, &snapshot.connect_text, 4U);
+        if (group != NULL && uri != NULL && voice_async_enqueue(request, REQUEST_SESSIONGROUP_ADD, &count, snapshot.generation) == 0) return;
+    }
+    if (request != NULL) g_async_destroy_request(request);
+    AcquireSRWLockExclusive(&g_async_lock);
+    voice_room *room = &g_voice_rooms[selected];
+    if (room->desired && room->generation == snapshot.generation && room->epoch == snapshot.epoch) {
+        /* Queue/allocation pressure has not started a recovery episode. */
+        room->media_failed = room->removed = TRUE; room->restore_audio = snapshot.restore_audio;
+        room->rejoins = snapshot.rejoins; room->rejoin_after = GetTickCount64() + 10000U; room->wake_announced = FALSE;
+        if (g_async_wake != NULL) SetEvent(g_async_wake);
+    }
+    ReleaseSRWLockExclusive(&g_async_lock);
 }
 static void voice_async_stop(void) {
     AcquireSRWLockExclusive(&g_async_lock); g_async_stop = TRUE;

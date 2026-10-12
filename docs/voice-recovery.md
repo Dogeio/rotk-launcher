@@ -11,7 +11,14 @@ wrong channels remain refused; no old-token fallback is introduced.
 Login and room cooldowns belong to their original context. Cancellation and
 new generations cannot reactivate an old room. Internal media retries retain
 the existing removal requirement, ten-second delay and two-episode limit.
-SDK and device behavior, PTT and audio transmission are unchanged.
+Device selection, PTT and audio transmission are unchanged.
+
+Expiry while queued, expiry before SDK polling and expiry of a previously valid
+grant permit a fresh request after cooldown. A late 403 or malformed response
+remains a permanent refusal. Both join ABIs share the same pending-room guard.
+Queue or allocation pressure when scheduling a media rejoin preserves its desire
+and retry budget; a replaced generation cannot be reactivated by that failure.
+SDK responses with no request owned by the proxy remain visible to the game.
 
 `recovery` log lines describe terminal failures and cooldowns without tokens,
 identities or private room URIs. HTTP User-Agent is `ROTK-VivoxProxy/2.0.37`.
@@ -30,10 +37,12 @@ failure logs contain request type, numeric status and the recovery decision.
 Classification reference: [Vivox SDK error codes](https://docs.vivox.com/v5/general/core/5_19_0/en-us/Core/developer-guide/troubleshooting/error-codes.htm).
 
 Run `npm run test:native:duo-voice`: existing SDK/HTTP/ownership regressions and
-24 login/join cases cover four quick 409s followed by success, cooldown
+34 login/join cases cover four quick 409s followed by success, cooldown
 and same-context retry with Retry-After 60, 500/502/504, truncated HTTP 200,
 malformed HTTP 200, immediate and asynchronous SDK network failures, SDK VAT service unavailable, and
-continued refusal after HTTP 403 or SDK invalid signature.
+continued refusal after HTTP 403 or SDK invalid signature. Extra cases cover
+queue/poll/grant expiry and delayed permanent refusals, plus four real-SDK
+pressure/unowned-response/generation regressions.
 The test advances cooldown deadlines directly to avoid waiting a full minute;
 the HTTP recovery itself uses the real WinHTTP worker and SDK allocator.
 
