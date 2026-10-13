@@ -41,7 +41,7 @@ static rotk_volume_destroy_fn g_volume_destroy;
 #define REQUEST_SESSION_SET_3D_POSITION 0x1cU
 #define POSITION_REQUEST_BYTES 0x130U
 #define POSITION_DISPOSITION_OFFSET 0x12cU
-#define POSITION_NO_REPLY_REQUIRED 1U
+#define POSITION_REPLY_REQUIRED 0U
 #define LOGIN_REQUEST_BYTES 0x90U
 #define SESSION_REQUEST_BYTES 0x90U
 #define SESSIONGROUP_REQUEST_BYTES 0x80U
@@ -2856,8 +2856,9 @@ int __cdecl vx_issue_request3(void *request, int *request_count) {
 #if defined(ROTK_VIVOX_V5_COMPAT)
     if (request_type == REQUEST_SESSION_SET_3D_POSITION &&
         request_is_accessible(request, POSITION_REQUEST_BYTES, TRUE)) {
-        /* Vivox's no-reply disposition skips success replies but retains errors. */
-        uint32_t disposition = POSITION_NO_REPLY_REQUIRED;
+        /* BR1315 retires every pending cookie on a response, before ignoring
+         * position successes. Suppressing them can prevent native logout. */
+        uint32_t disposition = POSITION_REPLY_REQUIRED;
         memcpy((uint8_t *)request + POSITION_DISPOSITION_OFFSET,
                &disposition, sizeof(disposition));
     }
