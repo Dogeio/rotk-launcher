@@ -100,4 +100,12 @@ describe("launcher locales", () => {
     expect(localizeServiceError("This ROTK account is permanently banned. Reason: cheating", "zh"))
       .toBe("此 ROTK 账号已被永久封禁。原因：cheating");
   });
+
+  it("localizes the early game exit message in English and Chinese", () => {
+    const raw = "H1Z1 s’est fermé 12 s après son lancement (code Windows 0xC0000005). Si tu ne l’as pas fermé toi-même, relance le jeu ; si ça recommence, Debug (dans les réglages) permet d’envoyer un rapport à ROTK.";
+    expect(localizeServiceError(raw, "en"))
+      .toBe("H1Z1 closed 12 s after it started (Windows code 0xC0000005). If you did not close it yourself, start the game again; if it happens again, Debug (in the settings) lets you send a report to ROTK.");
+    expect(localizeServiceError(raw, "zh"))
+      .toBe("H1Z1 在启动 12 秒后关闭（Windows 代码 0xC0000005）。如果不是你自己关闭的，请重新启动游戏；如果再次发生，可以通过设置中的“调试”向 ROTK 发送报告。");
+  });
 });

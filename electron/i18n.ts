@@ -209,6 +209,7 @@ const FRENCH_ERRORS = new Map<string, string>([
 
 const DYNAMIC_ENGLISH_ERRORS: Array<[RegExp, (match: RegExpMatchArray) => string]> = [
   [/^H1Z1 s’est fermé pendant son initialisation \(code Windows (.+)\)\.$/, (match) => `H1Z1 closed during initialization (Windows code ${match[1]}).`],
+  [/^H1Z1 s’est fermé (\d+) s après son lancement \(code Windows (.+)\)\. Si tu ne l’as pas fermé toi-même, relance le jeu ; si ça recommence, Debug \(dans les réglages\) permet d’envoyer un rapport à ROTK\.$/, (match) => `H1Z1 closed ${match[1]} s after it started (Windows code ${match[2] === "inconnu" ? "unknown" : match[2]}). If you did not close it yourself, start the game again; if it happens again, Debug (in the settings) lets you send a report to ROTK.`],
   [/^Client H1Z1 incomplet : (.+) est introuvable\.$/, (match) => `Incomplete H1Z1 client: ${match[1]} could not be found.`],
   [/^Un fichier du launcher est absent : (.+)\. Ton antivirus l’a peut-être mis en quarantaine : restaure-le depuis Sécurité Windows ou réinstalle le launcher\.$/, (match) => `A launcher file is missing: ${match[1]}. Your antivirus may have quarantined it: restore it from Windows Security or reinstall the launcher.`],
   [/^ROTK ne peut pas jouer depuis un dossier « (.+) »\. Choisis un emplacement indépendant de Steam\.$/, (match) => `ROTK cannot run from a “${match[1]}” folder. Choose a location outside Steam.`],
@@ -263,6 +264,7 @@ const DYNAMIC_CHINESE_ERRORS: Array<[RegExp, (match: RegExpMatchArray) => string
   [/^ROTK could not verify your game files: (.+) Check your connection and try again\.$/, (match) => `ROTK 无法验证你的游戏文件：${match[1]} 请检查网络后重试。`],
   [/^This ROTK account is suspended until (.+?)\.(?: Reason: (.+))?$/, (match) => `此 ROTK 账号已被封禁至 ${match[1]}。${match[2] ? `原因：${match[2]}` : ""}`],
   [/^This ROTK account is permanently banned\.(?: Reason: (.+))?$/, (match) => `此 ROTK 账号已被永久封禁。${match[1] ? `原因：${match[1]}` : ""}`],
+  [/^H1Z1 s’est fermé (\d+) s après son lancement \(code Windows (.+)\)\. Si tu ne l’as pas fermé toi-même, relance le jeu ; si ça recommence, Debug \(dans les réglages\) permet d’envoyer un rapport à ROTK\.$/, (match) => `H1Z1 在启动 ${match[1]} 秒后关闭（Windows 代码 ${match[2] === "inconnu" ? "未知" : match[2]}）。如果不是你自己关闭的，请重新启动游戏；如果再次发生，可以通过设置中的“调试”向 ROTK 发送报告。`],
 ];
 
 const ACCOUNT_CONNECTION_ERRORS = {
