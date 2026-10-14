@@ -221,6 +221,9 @@ const DYNAMIC_ENGLISH_ERRORS: Array<[RegExp, (match: RegExpMatchArray) => string
   [/^La copie de (.+) ne correspond pas à la source\.$/, (match) => `The copy of ${match[1]} does not match the source.`],
   [/^Le fichier source (.+) a changé pendant la copie\.$/, (match) => `The source file ${match[1]} changed during the copy.`],
   [/^Erreur launcher ([a-f0-9]+) : (.+)$/, (match) => `Launcher error ${match[1]}: ${match[2]}`],
+  [/^Le runtime Microsoft Visual C\+\+ x64 nécessaire à ROTK est absent de ce PC \((\S+) introuvable\)\. Installe-le depuis (\S+) puis réessaie\.$/, (match) => `The Microsoft Visual C++ x64 runtime ROTK needs is missing from this PC (${match[1]} not found). Install it from ${match[2]} and try again.`],
+  [/^Le runtime Microsoft Visual C\+\+ x64 de ce PC est trop ancien \((\S+) (\S+), minimum (\S+)\) : H1Z1 se fermerait au démarrage\. Installe la dernière version depuis (\S+) puis réessaie\.$/, (match) => `The Microsoft Visual C++ x64 runtime on this PC is too old (${match[1]} ${match[2]}, minimum ${match[3]}): H1Z1 would close as soon as it starts. Install the latest version from ${match[4]} and try again.`],
+  [/^Le dossier du jeu contient une ancienne copie de (\S+) \((\S+), minimum (\S+)\) : H1Z1 se fermerait au démarrage\. Supprime (.+) puis réessaie\.$/, (match) => `The game folder contains an old copy of ${match[1]} (${match[2]}, minimum ${match[3]}): H1Z1 would close as soon as it starts. Delete ${match[4]} and try again.`],
   [/^Manifeste d’assets invalide : (.+)\.$/, (match) => `Invalid asset manifest: ${match[1]}.`],
   [/^Archive d’assets invalide : (.+)\.$/, (match) => `Invalid asset archive: ${match[1]}.`],
   [/^L’asset (.+) est corrompu \(empreinte SHA-256 inattendue\)\.$/, (match) => `The ${match[1]} asset is corrupted (unexpected SHA-256 fingerprint).`],
@@ -258,6 +261,9 @@ const CHINESE_ERRORS = new Map<string, string>([
 
 const DYNAMIC_CHINESE_ERRORS: Array<[RegExp, (match: RegExpMatchArray) => string]> = [
   [/^Espace disque insuffisant : (.+) Go sont nécessaires\.$/, (match) => `磁盘空间不足，需要 ${match[1]} GB。`],
+  [/^Le runtime Microsoft Visual C\+\+ x64 nécessaire à ROTK est absent de ce PC \((\S+) introuvable\)\. Installe-le depuis (\S+) puis réessaie\.$/, (match) => `此电脑缺少 ROTK 所需的 Microsoft Visual C++ x64 运行库（找不到 ${match[1]}）。请从 ${match[2]} 安装后重试。`],
+  [/^Le runtime Microsoft Visual C\+\+ x64 de ce PC est trop ancien \((\S+) (\S+), minimum (\S+)\) : H1Z1 se fermerait au démarrage\. Installe la dernière version depuis (\S+) puis réessaie\.$/, (match) => `此电脑的 Microsoft Visual C++ x64 运行库版本过旧（${match[1]} ${match[2]}，最低要求 ${match[3]}），H1Z1 会在启动时关闭。请从 ${match[4]} 安装最新版本后重试。`],
+  [/^Le dossier du jeu contient une ancienne copie de (\S+) \((\S+), minimum (\S+)\) : H1Z1 se fermerait au démarrage\. Supprime (.+) puis réessaie\.$/, (match) => `游戏文件夹中有旧版 ${match[1]}（${match[2]}，最低要求 ${match[3]}），H1Z1 会在启动时关闭。请删除 ${match[4]} 后重试。`],
   [/^Client H1Z1 incomplet : (.+) est introuvable\.$/, (match) => `H1Z1 客户端不完整：找不到 ${match[1]}。请在 Steam 中验证游戏文件完整性。`],
   [/^Téléchargement d’assets refusé \(HTTP (\d+)\)\.$/, (match) => `资源下载失败（HTTP ${match[1]}），请稍后重试。`],
   [/^ROTK could not verify your game files: (.+) Check your connection and try again\.$/, (match) => `ROTK 无法验证你的游戏文件：${match[1]} 请检查网络后重试。`],
