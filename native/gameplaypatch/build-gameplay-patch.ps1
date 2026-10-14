@@ -45,7 +45,9 @@ function Build-DinputProxy([string]$Destination) {
         "-Wl,--out-implib,$importLibrary",
         "-o", $Destination,
         $source,
-        $definition
+        $definition,
+        "-ld3d11",
+        "-ldxgi"
     )
     if ($LASTEXITCODE -ne 0) {
         throw "Shotgun sprint proxy build failed with exit code $LASTEXITCODE."
