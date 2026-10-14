@@ -313,11 +313,19 @@ function windowsExitCode(code: number | null): string {
   return `0x${(code >>> 0).toString(16).padStart(8, "0").toUpperCase()}`;
 }
 
+// STATUS_SYSTEM_INTEGRITY_POLICY_VIOLATION (ntstatus.h): "An Application
+// Control policy has blocked this file." Smart App Control is one of them.
+function exitCodeHint(code: number | null): string {
+  if (windowsExitCode(code) !== "0xC0E90002") return "";
+  return " Windows a bloqué un fichier du jeu avec une stratégie App Control : "
+    + "vérifie le Contrôle intelligent des applications dans Sécurité Windows > Contrôle des applications et du navigateur.";
+}
+
 function earlyExitMessage(code: number | null, elapsedMs: number): string | null {
   // Zero is a normal close, as in the diagnostic reports (SUCCESS).
   if (code === 0 || elapsedMs >= GAME_EARLY_EXIT_MS) return null;
   const seconds = Math.max(1, Math.floor(elapsedMs / 1_000));
-  return `H1Z1 s’est fermé ${seconds} s après son lancement (code Windows ${windowsExitCode(code)}). `
+  return `H1Z1 s’est fermé ${seconds} s après son lancement (code Windows ${windowsExitCode(code)}).${exitCodeHint(code)} `
     + "Si tu ne l’as pas fermé toi-même, relance le jeu ; si ça recommence, Debug (dans les réglages) permet d’envoyer un rapport à ROTK.";
 }
 
@@ -327,7 +335,7 @@ function waitForStableStartup(
 ): Promise<void> {
   if (child.exitCode !== null) {
     return Promise.reject(new Error(
-      `H1Z1 s’est fermé pendant son initialisation (code Windows ${windowsExitCode(child.exitCode)}).`,
+      `H1Z1 s’est fermé pendant son initialisation (code Windows ${windowsExitCode(child.exitCode)}).${exitCodeHint(child.exitCode)}`,
     ));
   }
   return new Promise((resolve, reject) => {
@@ -339,7 +347,7 @@ function waitForStableStartup(
     const onExit = (code: number | null): void => {
       cleanup();
       reject(new Error(
-        `H1Z1 s’est fermé pendant son initialisation (code Windows ${windowsExitCode(code)}).`,
+        `H1Z1 s’est fermé pendant son initialisation (code Windows ${windowsExitCode(code)}).${exitCodeHint(code)}`,
       ));
     };
     const onError = (error: Error): void => {

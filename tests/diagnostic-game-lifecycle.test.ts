@@ -281,4 +281,28 @@ describe('a game that closes soon after a launch reported as started', () => {
     expect(localizeServiceError(unknown, 'en')).toContain('(Windows code unknown)');
     expect(localizeServiceError(unknown, 'zh')).toContain('（Windows 代码 未知）');
   });
+
+  it('names an App Control block in both close messages, and only for 0xC0E90002', async () => {
+    const appControl = 'Windows a bloqué un fichier du jeu avec une stratégie App Control : '
+      + 'vérifie le Contrôle intelligent des applications dans Sécurité Windows > Contrôle des applications et du navigateur.';
+    async function startupFailure(code: number): Promise<string> {
+      const f = await fixture();
+      const launched = f.launcher.launch(f.request).catch(error => error);
+      await vi.waitFor(() => expect(f.diagnostics.onSpawned).toHaveBeenCalled());
+      f.child().exit(code);
+      return (await launched).message;
+    }
+    const startup = await startupFailure(0xC0E90002);
+    expect(startup).toBe(`H1Z1 s’est fermé pendant son initialisation (code Windows 0xC0E90002). ${appControl}`);
+    expect(await startupFailure(0xC0E90001)).toBe('H1Z1 s’est fermé pendant son initialisation (code Windows 0xC0E90001).');
+    const early = gameLauncherInternals.earlyExitMessage(0xC0E90002 - 2 ** 32, 2_000)!;
+    expect(early).toBe(`H1Z1 s’est fermé 2 s après son lancement (code Windows 0xC0E90002). ${appControl} ${hint}`);
+    expect(gameLauncherInternals.earlyExitMessage(0xC0E90001, 2_000)).not.toContain('App Control');
+    for (const raw of [startup, early]) {
+      expect(localizeServiceError(raw, 'en')).toContain('(Windows code 0xC0E90002). Windows blocked a game file with an App Control policy:');
+      expect(localizeServiceError(raw, 'zh')).toContain('（Windows 代码 0xC0E90002）。Windows 的应用控制策略阻止了一个游戏文件：');
+    }
+    expect(localizeServiceError(early, 'en')).toContain('App & browser control. If you did not close it yourself, start the game again;');
+    expect(localizeServiceError(early, 'zh')).toContain('“智能应用控制”。如果不是你自己关闭的，');
+  });
 });
