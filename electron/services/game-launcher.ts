@@ -14,6 +14,7 @@ import { validateInstallDestination } from "./path-policy.js";
 import type { PlayerIdentity } from "./player-identity.js";
 import { startLocalSessionGateway } from "./session-gateway.js";
 import { readInstallationMarker } from "./installer.js";
+import { assertVisualCppRuntime } from "./visual-cpp-runtime.js";
 import {
   assertLaunchTicketFresh,
   createLaunchTicket,
@@ -428,6 +429,9 @@ export class GameLauncher {
     const installationRoot = await validateInstalledClient(installation);
     // Before attestation and the ticket, which are single-use.
     await assertExecutableNotRunning(join(installationRoot, "H1Z1.exe"));
+    // Checked before the voice repair, attestation and ticket: on a Visual C++
+    // runtime too old for rotkc.dll, H1Z1 can crash as it starts.
+    await assertVisualCppRuntime(installationRoot);
     const localLogs = join(request.logsRoot, installation.installId, "local");
     const failureLogs = join(request.logsRoot, installation.installId, "failure");
     await mkdir(localLogs, { recursive: true });

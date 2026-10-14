@@ -28,6 +28,8 @@ vi.mock('../electron/services/launch-ticket.js', () => ({ assertLaunchTicketFres
 vi.mock('../electron/services/session-gateway.js', () => ({
   startLocalSessionGateway: async () => ({ createSessionUrl: 'http://127.0.0.1:45678/createsession', close: mocks.gatewayClose }),
 }));
+const runtimeCheck = vi.hoisted(() => vi.fn(async (_root: string) => undefined));
+vi.mock('../electron/services/visual-cpp-runtime.js', () => ({ assertVisualCppRuntime: runtimeCheck }));
 
 class GameChild extends EventEmitter {
   pid: number | undefined = 4242;
@@ -100,6 +102,16 @@ describe('game lifecycle remains independent of diagnostics', () => {
     expect(f.request.presence.start).not.toHaveBeenCalled();
     expect(f.request.presence.stop).toHaveBeenCalledOnce();
     await vi.waitFor(() => expect(f.request.onExit).toHaveBeenCalledOnce());
+  });
+  it('refuses an outdated Visual C++ runtime before repairing voice or attesting', async () => {
+    const f = await fixture();
+    f.request.attest = vi.fn(async () => ({ status: 'not-applicable', clientPatchMode: 'clean' } as const));
+    runtimeCheck.mockRejectedValueOnce(new Error('runtime too old'));
+    await expect(f.launcher.launch(f.request)).rejects.toThrow('runtime too old');
+    expect(runtimeCheck).toHaveBeenLastCalledWith(f.request.config.installation!.root);
+    expect(mocks.deployVoice).not.toHaveBeenCalled();
+    expect(f.request.attest).not.toHaveBeenCalled();
+    expect(mocks.spawn).not.toHaveBeenCalled();
   });
   it.runIf(process.platform === 'win32')('launches when UserOptions.ini cannot be rewritten', async () => {
     const f = await fixture();
