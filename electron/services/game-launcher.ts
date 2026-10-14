@@ -8,7 +8,7 @@ import { promisify } from "node:util";
 import type { InstalledClientConfig, LauncherConfig } from "./config-store.js";
 import type { RuntimeConfig } from "./runtime-config.js";
 import { serverList } from "./runtime-config.js";
-import { GAME_LOCALE, synchronizeClientConfig, synchronizeUserOptions, validateLocalCreateSessionUrl } from "./client-config.js";
+import { GAME_LOCALE, synchronizeClientConfig, synchronizeUserOptions, synchronizeGraphicsOptions, validateLocalCreateSessionUrl } from "./client-config.js";
 import type { AppLocale } from "../../shared/locale.js";
 import { validateInstallDestination } from "./path-policy.js";
 import type { PlayerIdentity } from "./player-identity.js";
@@ -268,6 +268,8 @@ async function prepareClient(
     const patched = current.replace(/MasterPort\s+\d+/i, "MasterPort 20099");
     if (patched !== current) await writeFile(battleyePath, patched, "utf8");
   }
+
+  await updateUserOptions(root, synchronizeGraphicsOptions);
   return root;
 }
 

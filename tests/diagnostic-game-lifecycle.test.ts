@@ -20,6 +20,7 @@ vi.mock('../electron/services/gameplay-patch.js', () => ({
 }));
 vi.mock('../electron/services/client-config.js', () => ({ synchronizeClientConfig: (current: string) => current,
   synchronizeUserOptions: (current: string) => `${current}ROTKSocialLanguage=en\n`, GAME_LOCALE: { en: 'en_us', fr: 'en_us', zh: 'en_us' },
+  synchronizeGraphicsOptions: (current: string) => `${current}OverallQuality=-1\n`,
   validateLocalCreateSessionUrl: (url: string) => url }));
 vi.mock('../electron/services/launch-ticket.js', () => ({ assertLaunchTicketFresh: () => undefined,
   createLaunchTicket: async () => ({ ticket: 'test-only-ticket', displayName: 'FixturePlayer', steamId: '76561190000000000' }) }));
