@@ -194,6 +194,8 @@ export interface RotkLauncherApi {
   detectSource(): Promise<OperationResult<{ sourceRoot: string | null }>>;
   selectSource(): Promise<OperationResult<{ sourceRoot: string }>>;
   selectDestination(): Promise<OperationResult<{ destinationRoot: string }>>;
+  /** Opens Steam on the H1Z1 install page. */
+  openSteamInstall(): Promise<OperationResult>;
   dismissError(): Promise<void>;
   listInstallDrives(): Promise<InstallDrive[]>;
   /** Installs into `<drive>\Games\ROTK`. */
@@ -232,6 +234,7 @@ export const IPC_CHANNELS = {
   detectSource: "launcher:detect-source",
   selectSource: "launcher:select-source",
   selectDestination: "launcher:select-destination",
+  openSteamInstall: "launcher:open-steam-install",
   dismissError: "launcher:dismiss-error",
   listInstallDrives: "launcher:list-install-drives",
   chooseInstallDrive: "launcher:choose-install-drive",
