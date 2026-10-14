@@ -1421,6 +1421,9 @@ async function initialize(): Promise<void> {
       assetSyncEnabled: context.assetSyncEnabled === true, assetPackVersion: context.assetPackVersion,
       assetState: await assetSync.readState().catch(() => null) }),
     onDebugChange: () => { void broadcastSnapshot(); },
+    // The player sees the reason; startup.log keeps the error behind it.
+    onDebugFailure: (code, reason, error) => startupLog.mark(code, redactDiagnosticText([reason,
+      (error as NodeJS.ErrnoException | null)?.code, error instanceof Error ? error.message : String(error)].filter(Boolean).join(" | "))),
     onChange: (state) => {
       if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(IPC_CHANNELS.diagnosticsChanged, state);
     } });

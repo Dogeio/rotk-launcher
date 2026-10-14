@@ -75,6 +75,7 @@ export function InstallPanel({
       : debugSession?.status && debugSession.status !== "idle" ? debugCopy[debugSession.status]
         : debugSession?.enabled ? debugCopy.enabled : null;
   const debugError = !debugSessionBusy && (debugSessionFailed || debugSession?.status === "error");
+  const debugFailure = !debugSessionBusy && !debugSessionFailed && debugSession?.status === "error" ? debugSession.failure : null;
 
   return (
     <AnimatePresence>
@@ -226,6 +227,7 @@ export function InstallPanel({
                 <p className={`debug-session-settings__status${debugError ? " is-error" : ""}`} role={debugError ? "alert" : "status"}>
                   {debugStatus}
                   {debugSession?.status === 'ready' && debugSession.fileName && <><br /><code>{debugSession.fileName}</code></>}
+                  {debugFailure && <><br />{debugCopy.failure[debugFailure.reason]}{debugFailure.httpStatus ? ` (HTTP ${debugFailure.httpStatus})` : ""}</>}
                 </p>
               )}
             </section>
