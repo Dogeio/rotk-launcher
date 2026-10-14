@@ -163,11 +163,22 @@ export interface LauncherSnapshot {
   canPlay: boolean;
 }
 
+/** Why a Debug report was not sent. Stable codes, shown to the player. */
+export type DebugReportFailureReason =
+  | "collection"
+  | "timeout"
+  | "network"
+  | "rejected"
+  | "account-changed"
+  | "other";
+
 export interface DebugSessionSummary {
   enabled: boolean;
   status: "idle" | "recording" | "preparing" | "ready" | "error";
   fileName: string | null;
   error: string | null;
+  /** Set with the "error" status. httpStatus when the ROTK server answered. */
+  failure?: { reason: DebugReportFailureReason; httpStatus: number | null } | null;
 }
 
 export interface OperationResult<T = undefined> {

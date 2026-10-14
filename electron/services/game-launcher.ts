@@ -40,7 +40,7 @@ const GAME_EARLY_EXIT_MS = 60_000;
  * What one attestation attempt produced.
  * - `attested`: a block to carry with the ticket request.
  * - `not-applicable`: the server has no attestation to run (no policy yet, or
- *   unconfigured). Launch as usual â€” the ticket route stays the authority.
+ *   unconfigured). Launch as usual — the ticket route stays the authority.
  * - `unavailable`: attestation should have run but could not (service
  *   unreachable, files unreadable, malformed response). No block is sent, and
  *   if enforcement then blocks the launch, the reason explains why instead of
@@ -157,10 +157,10 @@ async function ticketRequestOptions(
 async function validateMarker(installation: InstalledClientConfig): Promise<void> {
   const marker = await readInstallationMarker(installation.root);
   if (!marker) {
-    throw new Error("Lâ€™installation ROTK est incomplÃ¨te : son marqueur est introuvable.");
+    throw new Error("L’installation ROTK est incomplète : son marqueur est introuvable.");
   }
   if (marker.schemaVersion !== 1 || marker.installId !== installation.installId) {
-    throw new Error("Lâ€™installation ROTK ne correspond plus Ã  celle enregistrÃ©e par le launcher.");
+    throw new Error("L’installation ROTK ne correspond plus à celle enregistrée par le launcher.");
   }
 }
 
@@ -169,9 +169,9 @@ export async function validateInstalledClient(installation: InstalledClientConfi
   await validateMarker({ ...installation, root });
 
   const executable = await stat(join(root, "H1Z1.exe")).catch(() => null);
-  if (!executable?.isFile()) throw new Error("H1Z1.exe est introuvable dans lâ€™installation ROTK.");
+  if (!executable?.isFile()) throw new Error("H1Z1.exe est introuvable dans l’installation ROTK.");
   if (!existsSync(join(root, "steam_api64.original.dll"))) {
-    throw new Error("La sauvegarde de steam_api64.dll est absente. RÃ©importe le client.");
+    throw new Error("La sauvegarde de steam_api64.dll est absente. Réimporte le client.");
   }
   return root;
 }
@@ -401,7 +401,7 @@ function waitForStableStartup(
     };
     const onError = (error: Error): void => {
       cleanup();
-      reject(new Error(`Windows nâ€™a pas pu initialiser H1Z1 : ${error.message}`));
+      reject(new Error(`Windows n’a pas pu initialiser H1Z1 : ${error.message}`));
     };
     const timer = setTimeout(() => {
       cleanup();
@@ -423,9 +423,9 @@ export class GameLauncher {
   }
 
   async launch(request: LaunchRequest): Promise<number> {
-    if (this.isRunning()) throw new Error("H1Z1 est dÃ©jÃ  lancÃ© depuis cette installation.");
+    if (this.isRunning()) throw new Error("H1Z1 est déjà lancé depuis cette installation.");
     const installation = request.config.installation;
-    if (!installation) throw new Error("Installe dâ€™abord le client ROTK.");
+    if (!installation) throw new Error("Installe d’abord le client ROTK.");
     const installationRoot = await validateInstalledClient(installation);
     // Before attestation and the ticket, which are single-use.
     await assertExecutableNotRunning(join(installationRoot, "H1Z1.exe"));
@@ -530,7 +530,7 @@ export class GameLauncher {
         // A failed spawn emits 'error' on the next tick even though no process
         // exists. The launch caller records the failure; absorb the event here.
         child.once("error", () => undefined);
-        throw new Error("Windows nâ€™a pas retournÃ© lâ€™identifiant du processus H1Z1.");
+        throw new Error("Windows n’a pas retourné l’identifiant du processus H1Z1.");
       }
       this.child = child;
       const spawnedAt = performance.now();

@@ -91,6 +91,7 @@ export function InstallPanel({
       .catch(() => undefined);
     return () => { current = false; };
   }, [open, requiresCopy, snapshot.selection.destinationRoot]);
+  const debugFailure = !debugSessionBusy && !debugSessionFailed && debugSession?.status === "error" ? debugSession.failure : null;
 
   return (
     <AnimatePresence>
@@ -271,6 +272,7 @@ export function InstallPanel({
                 <p className={`debug-session-settings__status${debugError ? " is-error" : ""}`} role={debugError ? "alert" : "status"}>
                   {debugStatus}
                   {debugSession?.status === 'ready' && debugSession.fileName && <><br /><code>{debugSession.fileName}</code></>}
+                  {debugFailure && <><br />{debugCopy.failure[debugFailure.reason]}{debugFailure.httpStatus ? ` (HTTP ${debugFailure.httpStatus})` : ""}</>}
                 </p>
               )}
             </section>
