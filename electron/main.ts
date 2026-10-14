@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, stat, statfs } from "node:fs/promises";
+import { mkdir, realpath, stat, statfs } from "node:fs/promises";
 import { join, basename, dirname, parse, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -53,7 +53,7 @@ import {
 } from "./constants.js";
 import { ConfigStore } from "./services/config-store.js";
 import { DiscordPresence } from "./services/discord-presence.js";
-import { adoptExistingClient, cleanupInstallLeftovers, inspectDestination, installClient } from "./services/installer.js";
+import { adoptExistingClient, cleanupInstallLeftovers, inspectDestination, installClient, lostWithLauncherFolder } from "./services/installer.js";
 import {
   GameLauncher,
   validateInstalledClient,
@@ -64,7 +64,7 @@ import { HWID_CORE_SLOTS, collectHwid } from "./services/machine-identity.js";
 import { collectTpmProof } from "./services/tpm-identity.js";
 import { collectTpmAnchor, enrolTpmAnchor } from "./services/tpm-anchor.js";
 import { tpmBindingMessage } from "../shared/attestation.js";
-import { PathPolicyError, classifyClientSource, validateInstallDestination } from "./services/path-policy.js";
+import { PathPolicyError, assertOutsideLauncherFolder, classifyClientSource, validateInstallDestination } from "./services/path-policy.js";
 import { H1Z1_STEAM_APP_ID, locateSteamClient } from "./services/steam-locator.js";
 import {
   runtimeConfigFor,
@@ -85,7 +85,7 @@ import electronUpdater from "electron-updater";
 import { localizeServiceError, MAIN_COPY } from "./i18n.js";
 import { identityFromPlayerKey } from "./services/player-identity.js";
 import { PlayerKeyStore, type PlayerKeySet } from "./services/player-key-store.js";
-import { readInstallationMarker } from "./services/installer.js";
+import { lostWithLauncherFolder, readInstallationMarker } from "./services/installer.js";
 import {
   BASE_MANIFEST_URL,
   loadBaseManifest,
@@ -380,12 +380,19 @@ async function listInstallDrives(): Promise<InstallDrive[]> {
 /** Validates a destination and refuses folders holding someone else's files. */
 async function acceptDestination(candidate: string): Promise<string> {
   const destination = await validateInstallDestination(candidate, sourceRoot ?? undefined);
+  assertOutsideLauncherFolder(destination, await installedLauncherFolder());
   if (await inspectDestination(destination) === "foreign") {
     throw new PathPolicyError(
       "Le dossier ROTK choisi contient déjà d’autres fichiers. Choisis un dossier vide.",
     );
   }
   return destination;
+}
+
+/** The installed launcher's own folder, which its updates delete; null in development. */
+async function installedLauncherFolder(): Promise<string | null> {
+  const folder = dirname(app.getPath("exe"));
+  return app.isPackaged ? realpath(folder).catch(() => resolve(folder)) : null;
 }
 
 /**
@@ -969,7 +976,7 @@ function registerIpc(): void {
       try {
         const located = await locateSteamClient();
         if (!located) return { ok: true, value: { sourceRoot: null } };
-        const selectedClient = await classifyClientSource(located);
+        const selectedClient = await classifyClientSource(located, await installedLauncherFolder());
         sourceRoot = selectedClient.root;
         sourceKind = selectedClient.kind;
         sourceDetected = true;
@@ -1003,7 +1010,7 @@ function registerIpc(): void {
       });
       if (selected.canceled || selected.filePaths.length === 0) return { ok: false, cancelled: true };
       try {
-        const selectedClient = await classifyClientSource(selected.filePaths[0]);
+        const selectedClient = await classifyClientSource(selected.filePaths[0], await installedLauncherFolder());
         sourceRoot = selectedClient.root;
         sourceKind = selectedClient.kind;
         sourceDetected = false;
@@ -1130,6 +1137,7 @@ function registerIpc(): void {
         const installationRoot = sourceKind === "direct"
           ? sourceRoot
           : destinationRoot as string;
+        const launcherFolder = await installedLauncherFolder();
         let marker: Awaited<ReturnType<typeof installClient>>;
         if (sourceKind === "direct") {
           marker = await adoptExistingClient({
@@ -1138,6 +1146,7 @@ function registerIpc(): void {
             vivoxProxyPath: resolveBundledVivoxProxyPath(),
             vivoxRuntimePath: resolveBundledVivoxRuntimePath(),
             launcherVersion: app.getVersion(),
+            launcherFolder,
             onProgress,
           });
         } else {
@@ -1150,6 +1159,7 @@ function registerIpc(): void {
             vivoxProxyPath: resolveBundledVivoxProxyPath(),
             vivoxRuntimePath: resolveBundledVivoxRuntimePath(),
             launcherVersion: app.getVersion(),
+            launcherFolder,
             signal: installAbortController.signal,
             onProgress,
           });
@@ -1541,7 +1551,9 @@ async function initialize(): Promise<void> {
     try {
       await validateInstalledClient(config.installation);
     } catch (error) {
-      lastErrorRaw = rawErrorMessage(error);
+      lastErrorRaw = await lostWithLauncherFolder(config.installation.root, await installedLauncherFolder())
+        ? "Le jeu était installé dans le dossier de ROTK Launcher, que chaque mise à jour ou désinstallation du launcher supprime. Si tu l’as déplacé, sélectionne-le à son nouvel emplacement ; sinon, réinstalle-le ailleurs, par exemple dans C:\\Games\\ROTK."
+        : rawErrorMessage(error);
       // A drive not mounted yet or a locked file can clear up: Play checks
       // again. A damaged installation sends the player to the setup panel.
       const driveReady = await stat(parse(config.installation.root).root).then(() => true, () => false);

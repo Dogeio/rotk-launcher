@@ -1,5 +1,7 @@
+import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import { localizeServiceError } from "../electron/i18n";
+import { assertOutsideLauncherFolder } from "../electron/services/path-policy";
 import { APP_LOCALES, normalizeAppLocale } from "../shared/locale";
 
 describe("launcher locales", () => {
@@ -108,6 +110,21 @@ describe("launcher locales", () => {
     expect(localizeServiceError("Invalid ROTK session identity", "fr")).toBe(
       "L’identité de session ROTK est invalide.",
     );
+  });
+
+  it("explains the launcher folder rule in English and Chinese", async () => {
+    const refused = "Le jeu ne peut pas être placé dans le dossier de ROTK Launcher : chaque mise à jour ou désinstallation du launcher supprime ce dossier. Place le jeu ailleurs, par exemple dans C:\\Games\\ROTK.";
+    const deleted = "Le jeu était installé dans le dossier de ROTK Launcher, que chaque mise à jour ou désinstallation du launcher supprime. Si tu l’as déplacé, sélectionne-le à son nouvel emplacement ; sinon, réinstalle-le ailleurs, par exemple dans C:\\Games\\ROTK.";
+    expect(() => assertOutsideLauncherFolder("C:\\Program Files\\ROTK Launcher\\ROTK", "C:\\Program Files\\ROTK Launcher"))
+      .toThrow(refused);
+    expect(await readFile(new URL("../electron/main.ts", import.meta.url), "utf8")).toContain(JSON.stringify(deleted));
+
+    expect(localizeServiceError(refused, "en"))
+      .toBe("The game cannot be placed in the ROTK Launcher folder: every launcher update or uninstall deletes that folder. Put the game somewhere else, for example in C:\\Games\\ROTK.");
+    expect(localizeServiceError(deleted, "en"))
+      .toBe("The game was installed in the ROTK Launcher folder, which every launcher update or uninstall deletes. If you moved it, select it at its new location; otherwise install it again somewhere else, for example in C:\\Games\\ROTK.");
+    expect(localizeServiceError(refused, "zh")).toContain("ROTK Launcher 文件夹");
+    expect(localizeServiceError(deleted, "zh")).toContain("ROTK Launcher 文件夹");
   });
 
   it("localizes common install errors in Chinese and falls back to English", () => {

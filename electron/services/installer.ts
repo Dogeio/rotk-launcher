@@ -29,7 +29,9 @@ import {
 } from "../constants.js";
 import {
   PathPolicyError,
+  assertOutsideLauncherFolder,
   assertSafeGeneratedStagingPath,
+  isInLauncherFolder,
   validateClientSource,
   validateInstallDestination,
 } from "./path-policy.js";
@@ -83,6 +85,7 @@ export interface InstallRequest {
   vivoxProxyPath: string;
   vivoxRuntimePath: string;
   launcherVersion: string;
+  launcherFolder: string | null;
   signal: AbortSignal;
   onProgress(progress: InstallProgress): void;
 }
@@ -93,6 +96,7 @@ export interface AdoptExistingClientRequest {
   vivoxProxyPath: string;
   vivoxRuntimePath: string;
   launcherVersion: string;
+  launcherFolder: string | null;
   onProgress(progress: InstallProgress): void;
 }
 
@@ -127,6 +131,18 @@ async function readJson(path: string): Promise<unknown> {
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT" || error instanceof SyntaxError) return null;
     throw error;
+  }
+}
+
+/**
+ * A game kept inside the launcher folder disappears with the next launcher
+ * update, leaving only a missing marker.
+ */
+export async function lostWithLauncherFolder(root: string, launcherFolder: string | null): Promise<boolean> {
+  try {
+    return isInLauncherFolder(root, launcherFolder) && await readInstallationMarker(root) === null;
+  } catch {
+    return false;
   }
 }
 
@@ -335,6 +351,7 @@ export async function adoptExistingClient(
 ): Promise<InstallationMarker> {
   const sourceRoot = await validateClientSource(request.root);
   const root = await validateInstallDestination(sourceRoot);
+  assertOutsideLauncherFolder(root, request.launcherFolder);
   const existingMarker = await readInstallationMarker(root);
   const totalFiles = CRITICAL_CLIENT_FILES.length;
 
@@ -412,6 +429,9 @@ async function removeLegacyStagingDirectories(destinationRoot: string): Promise<
 export async function installClient(request: InstallRequest): Promise<InstallationMarker> {
   const sourceRoot = await validateClientSource(request.sourceRoot);
   const destinationRoot = await validateInstallDestination(request.destinationRoot, sourceRoot);
+  assertOutsideLauncherFolder(destinationRoot, request.launcherFolder);
+  const destinationParent = dirname(destinationRoot);
+  await mkdir(destinationParent, { recursive: true });
 
   const state = await inspectDestination(destinationRoot);
   if (state === "foreign") {
