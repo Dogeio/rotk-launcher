@@ -136,4 +136,25 @@ describe("launcher locales", () => {
     expect(localizeServiceError("This ROTK account is permanently banned. Reason: cheating", "fr"))
       .toBe("Ce compte ROTK est banni définitivement. Raison : cheating");
   });
+
+  it("localizes the early game exit message in English and Chinese", () => {
+    const raw = "H1Z1 s’est fermé 12 s après son lancement (code Windows 0xC0000005). Si tu ne l’as pas fermé toi-même, relance le jeu ; si ça recommence, Debug (dans les réglages) permet d’envoyer un rapport à ROTK.";
+    expect(localizeServiceError(raw, "en"))
+      .toBe("H1Z1 closed 12 s after it started (Windows code 0xC0000005). If you did not close it yourself, start the game again; if it happens again, Debug (in the settings) lets you send a report to ROTK.");
+    expect(localizeServiceError(raw, "zh"))
+      .toBe("H1Z1 在启动 12 秒后关闭（Windows 代码 0xC0000005）。如果不是你自己关闭的，请重新启动游戏；如果再次发生，可以通过设置中的“调试”向 ROTK 发送报告。");
+  });
+
+  it("localizes the startup game exit message, its unknown code and the App Control hint", () => {
+    expect(localizeServiceError("H1Z1 s’est fermé pendant son initialisation (code Windows 0xC0000005).", "zh"))
+      .toBe("H1Z1 在初始化时关闭（Windows 代码 0xC0000005）。");
+    const unknown = "H1Z1 s’est fermé pendant son initialisation (code Windows inconnu).";
+    expect(localizeServiceError(unknown, "en")).toBe("H1Z1 closed during initialization (Windows code unknown).");
+    expect(localizeServiceError(unknown, "zh")).toBe("H1Z1 在初始化时关闭（Windows 代码 未知）。");
+    const blocked = "H1Z1 s’est fermé pendant son initialisation (code Windows 0xC0E90002). Windows a bloqué un fichier du jeu avec une stratégie App Control : vérifie le Contrôle intelligent des applications dans Sécurité Windows > Contrôle des applications et du navigateur.";
+    expect(localizeServiceError(blocked, "en"))
+      .toBe("H1Z1 closed during initialization (Windows code 0xC0E90002). Windows blocked a game file with an App Control policy: check Smart App Control in Windows Security > App & browser control.");
+    expect(localizeServiceError(blocked, "zh"))
+      .toBe("H1Z1 在初始化时关闭（Windows 代码 0xC0E90002）。Windows 的应用控制策略阻止了一个游戏文件：请在“Windows 安全中心 > 应用和浏览器控制”中检查“智能应用控制”。");
+  });
 });

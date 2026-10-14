@@ -30,6 +30,10 @@ import { recoverInputProfile, type InputProfileRecovery } from "./input-profile-
 import { prepareWeaponStanceProfile, WEAPON_STANCE_ENABLED } from "./weapon-stance-profile.js";
 
 const GAME_STARTUP_STABILITY_MS = 3_000;
+// Past the stability window the launch is reported as started. When the game
+// then closes this soon after its spawn with anything but exit code 0, that
+// code is the only clue the player can pass on.
+const GAME_EARLY_EXIT_MS = 60_000;
 
 /**
  * What one attestation attempt produced.
@@ -101,6 +105,13 @@ export interface LaunchRequest {
   /** A damaged InputProfile_User.xml was set aside so the launch could go on. */
   onInputProfileRecovered?(recovery: InputProfileRecovery): void;
   onExit(exitCode: number | null): void;
+  /**
+   * Called just before `onExit` when a launch that was reported as started
+   * ends within GAME_EARLY_EXIT_MS with anything but exit code 0. The play
+   * request has already returned success by then, so this message is the only
+   * way to tell the player.
+   */
+  onEarlyExit?(message: string): void;
 }
 
 export interface GameLaunchDiagnostics {
@@ -350,13 +361,29 @@ function windowsExitCode(code: number | null): string {
   return `0x${(code >>> 0).toString(16).padStart(8, "0").toUpperCase()}`;
 }
 
+// STATUS_SYSTEM_INTEGRITY_POLICY_VIOLATION (ntstatus.h): "An Application
+// Control policy has blocked this file." Smart App Control is one of them.
+function exitCodeHint(code: number | null): string {
+  if (windowsExitCode(code) !== "0xC0E90002") return "";
+  return " Windows a bloqué un fichier du jeu avec une stratégie App Control : "
+    + "vérifie le Contrôle intelligent des applications dans Sécurité Windows > Contrôle des applications et du navigateur.";
+}
+
+function earlyExitMessage(code: number | null, elapsedMs: number): string | null {
+  // Zero is a normal close, as in the diagnostic reports (SUCCESS).
+  if (code === 0 || elapsedMs >= GAME_EARLY_EXIT_MS) return null;
+  const seconds = Math.max(1, Math.floor(elapsedMs / 1_000));
+  return `H1Z1 s’est fermé ${seconds} s après son lancement (code Windows ${windowsExitCode(code)}).${exitCodeHint(code)} `
+    + "Si tu ne l’as pas fermé toi-même, relance le jeu ; si ça recommence, Debug (dans les réglages) permet d’envoyer un rapport à ROTK.";
+}
+
 function waitForStableStartup(
   child: ChildProcess,
   durationMs = GAME_STARTUP_STABILITY_MS,
 ): Promise<void> {
   if (child.exitCode !== null) {
     return Promise.reject(new Error(
-      `H1Z1 sâ€™est fermÃ© pendant son initialisation (code Windows ${windowsExitCode(child.exitCode)}).`,
+      `H1Z1 s’est fermé pendant son initialisation (code Windows ${windowsExitCode(child.exitCode)}).${exitCodeHint(child.exitCode)}`,
     ));
   }
   return new Promise((resolve, reject) => {
@@ -368,7 +395,7 @@ function waitForStableStartup(
     const onExit = (code: number | null): void => {
       cleanup();
       reject(new Error(
-        `H1Z1 sâ€™est fermÃ© pendant son initialisation (code Windows ${windowsExitCode(code)}).`,
+        `H1Z1 s’est fermé pendant son initialisation (code Windows ${windowsExitCode(code)}).${exitCodeHint(code)}`,
       ));
     };
     const onError = (error: Error): void => {
@@ -502,6 +529,8 @@ export class GameLauncher {
         throw new Error("Windows nâ€™a pas retournÃ© lâ€™identifiant du processus H1Z1.");
       }
       this.child = child;
+      const spawnedAt = performance.now();
+      let started = false;
       for (const stream of ["stdout", "stderr"] as const) {
         child[stream]?.setEncoding("utf8");
         child[stream]?.on("data", (text: string) => diagnosticCallback(() => request.diagnostics?.onOutput(stream, text)));
@@ -512,13 +541,20 @@ export class GameLauncher {
       const finalize = (code: number | null, signal: NodeJS.Signals | null = null): void => {
         if (finalized) return;
         finalized = true;
+        // A startup failure is already reported by the rejected launch below.
+        const earlyExit = started ? earlyExitMessage(code, performance.now() - spawnedAt) : null;
         try { request.presence?.stop(); } catch { /* Presence is optional. */ }
         if (this.child === child) this.child = null;
         void sessionGateway.close().catch(() => undefined);
         // Preserve the local gateway/game lifecycle, but keep the launcher alive
         // until the final report has been persisted when its window was closed.
         const collected = Promise.resolve().then(() => request.diagnostics?.onExit(code, signal));
-        void collected.catch(() => undefined).finally(() => request.onExit(code));
+        void collected.catch(() => undefined).finally(() => {
+          if (earlyExit) {
+            try { request.onEarlyExit?.(earlyExit); } catch { /* The message must not block the exit callback. */ }
+          }
+          request.onExit(code);
+        });
       };
       child.once("exit", (code, signal) => finalize(code, signal));
       child.once("error", () => finalize(null));
@@ -527,6 +563,7 @@ export class GameLauncher {
       // 1.4.0: H1Z1 exited with 0xc00000fd immediately after spawn, while the
       // renderer had already switched to the running state.
       await waitForStableStartup(child);
+      started = true;
       if (!finalized) {
         try { request.presence?.start(child.pid); } catch { /* Presence is optional. */ }
       }
@@ -547,4 +584,5 @@ export const gameLauncherInternals = {
   buildLaunchArguments,
   validateVoiceGrantOrigin,
   windowsExitCode,
+  earlyExitMessage,
 };

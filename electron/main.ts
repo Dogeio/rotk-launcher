@@ -1252,6 +1252,8 @@ function registerIpc(): void {
           launcherVersion: app.getVersion(),
           diagnostics: diagnosticLaunch?.hooks,
           presence: discordPresence,
+          // Shown by the snapshot that onExit broadcasts right after.
+          onEarlyExit: (message) => { lastErrorRaw = message; },
           // Best-effort hardware fingerprint; the server hashes it. A failure
           // must never block a launch, so it degrades to no HWID signal.
           fallbackHwid: () => collectHwid(),
