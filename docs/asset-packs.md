@@ -23,10 +23,11 @@ requiring a launcher release. The pipeline is implemented by
    an asset is (re)installed when it is new, its `version`/`sha256` changed, or one of
    its installed files is missing (the **Verify files** action additionally re-hashes
    every installed file).
-4. Download into `<install parent>/.<install>-assets/asset-cache/`, on the game
-   drive (a cached pack with the right SHA-256 is
-   reused without any network call), verify the streamed SHA-256 against the manifest,
-   then install atomically (staging file + `rename`) into the ROTK installation.
+4. Download into `<install parent>/.<install>-assets/asset-cache/`, on the game drive (a cached pack with the right SHA-256 is
+   reused without any network call). Downloads go to a `.part` file and resume with
+   a `Range` request after a network drop or a restart. The SHA-256 is checked
+   against the manifest, then the files are installed atomically (staging file +
+   `rename`) into the ROTK installation.
 5. Client files overwritten for the first time are backed up under
    `.<install>-assets/asset-backups/` — **Restore vanilla client** puts them back and deletes
    everything the merged catalog added.
