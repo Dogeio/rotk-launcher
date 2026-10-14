@@ -100,4 +100,15 @@ describe("launcher locales", () => {
     expect(localizeServiceError("This ROTK account is permanently banned. Reason: cheating", "zh"))
       .toBe("此 ROTK 账号已被永久封禁。原因：cheating");
   });
+
+  it("localizes account service errors for French players", () => {
+    expect(localizeServiceError(
+      "ROTK could not verify your game files: Unable to reach the ROTK integrity service. Check your connection and try again.", "fr",
+    )).toBe("ROTK n’a pas pu vérifier tes fichiers de jeu : le service de vérification ROTK est injoignable. Vérifie ta connexion puis réessaie.");
+    expect(localizeServiceError(
+      "ROTK could not verify your game files: EACCES: permission denied. Check your connection and try again.", "fr",
+    )).toBe("ROTK n’a pas pu vérifier tes fichiers de jeu : la vérification n’a pas pu aboutir. Vérifie ta connexion puis réessaie.");
+    expect(localizeServiceError("This ROTK account is permanently banned. Reason: cheating", "fr"))
+      .toBe("Ce compte ROTK est banni définitivement. Raison : cheating");
+  });
 });
