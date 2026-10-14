@@ -29,6 +29,7 @@ import {
   assertOutsideLauncherFolder,
   assertSafeGeneratedStagingPath,
   isInLauncherFolder,
+  resolvePhysicalPath,
   validateClientSource,
   validateInstallDestination,
 } from "./path-policy.js";
@@ -137,7 +138,9 @@ async function readJson(path: string): Promise<unknown> {
  */
 export async function lostWithLauncherFolder(root: string, launcherFolder: string | null): Promise<boolean> {
   try {
-    return isInLauncherFolder(root, launcherFolder) && await readInstallationMarker(root) === null;
+    if (launcherFolder === null) return false;
+    const physicalRoot = await resolvePhysicalPath(root);
+    return isInLauncherFolder(physicalRoot, launcherFolder) && await readInstallationMarker(root) === null;
   } catch {
     return false;
   }

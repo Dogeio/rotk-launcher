@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readdir, realpath, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, realpath, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -94,4 +94,11 @@ describe("game copy inside the launcher folder", () => {
     expect(await lostWithLauncherFolder(join(root, "Games", "ROTK"), launcherFolder)).toBe(false);
     expect(await lostWithLauncherFolder(join(launcher, "ROTK"), null)).toBe(false);
   });
+  it("recognizes missing games through a physical launcher-folder alias", async () => {
+    const { root, launcher, launcherFolder } = await launcherFixture();
+    const alias = join(root, "launcher-alias");
+    await symlink(launcher, alias, process.platform === "win32" ? "junction" : "dir");
+    expect(await lostWithLauncherFolder(join(alias, "missing-game"), launcherFolder)).toBe(true);
+  });
+
 });
