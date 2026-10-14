@@ -19,7 +19,7 @@ vi.mock('../electron/services/gameplay-patch.js', () => ({
   applyGameplayPatchMode: async () => "up-to-date",
 }));
 vi.mock('../electron/services/client-config.js', () => ({ synchronizeClientConfig: (current: string) => current,
-  synchronizeUserOptions: (current: string) => `${current}ROTKSocialLanguage=en\n`, GAME_LOCALE: { en: 'en_us', fr: 'en_us', zh: 'en_us' },
+  synchronizeUserOptions: (current: string) => `${current}ROTKSocialLanguage=en\n`, GAME_LOCALE: { en: 'en_us', fr: 'en_us', zh: 'zh_cn' },
   synchronizeGraphicsOptions: (current: string) => `${current}OverallQuality=-1\n`,
   validateLocalCreateSessionUrl: (url: string) => url }));
 vi.mock('../electron/services/launch-ticket.js', () => ({ assertLaunchTicketFresh: () => undefined,
