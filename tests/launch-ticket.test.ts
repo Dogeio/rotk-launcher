@@ -23,6 +23,8 @@ function validTicketResponse(lifetimeMs = 120_000) {
 }
 
 const validResponse = validTicketResponse();
+// Stand-in for the single-use block integrity-attestation.ts builds.
+const attestation = { challengeId: "challenge-1" };
 
 function jsonResponse(payload: unknown, status = 200): Response {
   return new Response(JSON.stringify(payload), {
@@ -191,6 +193,49 @@ describe("ROTK launch ticket client", () => {
     expect(fetchImpl).toHaveBeenCalledTimes(2);
   });
 
+  it("does not replay an attestation after a header timeout", async () => {
+    vi.useFakeTimers();
+    const fetchImpl = vi.fn((_input: URL | RequestInfo, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
+      init?.signal?.addEventListener("abort", () => reject(init.signal?.reason), { once: true });
+    })) as typeof fetch;
+    try {
+      const result = expect(createLaunchTicket(launcherKey, endpoint, { fetchImpl, timeoutMs: 100, attestation }))
+        .rejects.toThrow("Unable to reach the ROTK account service (timeout)");
+      await vi.advanceTimersByTimeAsync(550);
+      await result;
+      expect(fetchImpl).toHaveBeenCalledOnce();
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it.each(["ECONNRESET", "UND_ERR_SOCKET"])("does not replay an attestation after %s", async (code) => {
+    // Node reports a reset during the TLS handshake and one after the request
+    // was written with the same ECONNRESET: neither proves the challenge unused.
+    const fetchImpl = vi.fn(async () => {
+      throw Object.assign(new Error("fetch failed"), { cause: { code } });
+    }) as unknown as typeof fetch;
+
+    await expect(createLaunchTicket(launcherKey, endpoint, { fetchImpl, attestation }))
+      .rejects.toThrow(`Unable to reach the ROTK account service (${code})`);
+    expect(fetchImpl).toHaveBeenCalledOnce();
+  });
+
+  it.each(["ENOTFOUND", "ECONNREFUSED"])("retries an attestation once after %s, which proves it was never sent", async (code) => {
+    const fetchMock = vi.fn(async () => {
+      if (fetchMock.mock.calls.length === 1) {
+        throw Object.assign(new Error("fetch failed"), { cause: { code } });
+      }
+      return jsonResponse(validResponse);
+    });
+    const fetchImpl = fetchMock as unknown as typeof fetch;
+
+    await expect(createLaunchTicket(launcherKey, endpoint, { fetchImpl, attestation }))
+      .resolves.toMatchObject({ ticket: validResponse.ticket });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
   it("names an account the service holds no game identity for", async () => {
     const fetchImpl = vi.fn(async () => jsonResponse({ error: "account_not_ready" }, 403)) as typeof fetch;
 
@@ -210,6 +255,32 @@ describe("ROTK launch ticket client", () => {
       fetchImpl,
       attestationUnavailableReason: "the ROTK integrity service could not be reached.",
     })).rejects.toThrow(/could not verify your game files.*could not be reached/s);
+  });
+
+  it("tells a timeout apart from a cancelled request", async () => {
+    const hanging = vi.fn((_input: unknown, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
+      init?.signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")), { once: true });
+    })) as unknown as typeof fetch;
+    await expect(createLaunchTicket(launcherKey, endpoint, { fetchImpl: hanging, timeoutMs: 1 }))
+      .rejects.toThrow("Unable to reach the ROTK account service (timeout)");
+    const cancelled = vi.fn(async () => { throw new DOMException("aborted", "AbortError"); }) as unknown as typeof fetch;
+    await expect(createLaunchTicket(launcherKey, endpoint, { fetchImpl: cancelled }))
+      .rejects.toThrow("Unable to reach the ROTK account service (cancelled)");
+    expect(cancelled).toHaveBeenCalledTimes(1);
+  });
+
+  it("names the required version and keeps the update tag for a refused version", async () => {
+    const fetchImpl = vi.fn(async () =>
+      jsonResponse({ error: "launcher_update_required", failureCode: "launcher_update_required", requiredVersion: "2.0.25" }, 403),
+    ) as typeof fetch;
+    // Even when attestation could not run: the version list decides on its own.
+    await expect(createLaunchTicket(launcherKey, endpoint, {
+      fetchImpl,
+      attestationUnavailableReason: "the ROTK integrity service could not be reached.",
+    })).rejects.toMatchObject({
+      code: "launcher_update_required",
+      message: expect.stringContaining("Required version: 2.0.25."),
+    });
   });
 
   it("keeps the update message when attestation actually ran and the launcher is old", async () => {

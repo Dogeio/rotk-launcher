@@ -140,12 +140,12 @@ jobs:
           npm run build:vivox
           if ($LASTEXITCODE -ne 0) { throw "Vivox release input validation failed." }
           $proxyHash = (Get-FileHash -LiteralPath "resources\patches\vivoxsdk_x64.dll" -Algorithm SHA256).Hash
-          if ($proxyHash -ne "F4B2F01A682F9602E8D4DB4D31275BD641828F480F86F86D409C6C4B9304C562") {
+          if ($proxyHash -ne "566C0940F7BA62A1DCCAFB8482F39F151BF052E00C97BB8C737E77487879ACD0") {
             throw "Unexpected Vivox proxy SHA-256: $proxyHash"
           }
           npm run prepare:gameplay-patch
           $gameplayHash = (Get-FileHash -LiteralPath "resources\patches\dinput8.dll" -Algorithm SHA256).Hash
-          if ($gameplayHash -ne "50FC571D149ADAC1A86470BA79954EA35F713E2D02C8D88EF2BAF22F326F525A") {
+          if ($gameplayHash -ne "E969DEDBB8F7A130449C5D38FD3E4F6FB34BA61ABFDC3D413F63A069D4A7B36E") {
             throw "Unexpected shotgun sprint proxy SHA-256: $gameplayHash"
           }
           # Les sidecars alimentent les overrides d'attestation embarqués :
@@ -199,7 +199,7 @@ jobs:
             Where-Object { $_.Name -eq "vivoxsdk_x64.dll" } |
             Select-Object -First 1
           $proxyHash = (Get-FileHash -LiteralPath $vivoxProxy.FullName -Algorithm SHA256).Hash
-          if ($proxyHash -ne "F4B2F01A682F9602E8D4DB4D31275BD641828F480F86F86D409C6C4B9304C562") {
+          if ($proxyHash -ne "566C0940F7BA62A1DCCAFB8482F39F151BF052E00C97BB8C737E77487879ACD0") {
             throw "Unexpected packaged Vivox proxy SHA-256: $proxyHash"
           }
 
