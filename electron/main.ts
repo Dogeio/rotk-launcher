@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, stat } from "node:fs/promises";
+import { mkdir, realpath, stat } from "node:fs/promises";
 import { join, basename, dirname, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -62,7 +62,11 @@ import { HWID_CORE_SLOTS, collectHwid } from "./services/machine-identity.js";
 import { collectTpmProof } from "./services/tpm-identity.js";
 import { collectTpmAnchor, enrolTpmAnchor } from "./services/tpm-anchor.js";
 import { tpmBindingMessage } from "../shared/attestation.js";
-import { classifyClientSource, validateInstallDestination } from "./services/path-policy.js";
+import {
+  assertOutsideLauncherFolder,
+  classifyClientSource,
+  validateInstallDestination,
+} from "./services/path-policy.js";
 import { locateSteamClient } from "./services/steam-locator.js";
 import {
   runtimeConfigFor,
@@ -83,7 +87,7 @@ import electronUpdater from "electron-updater";
 import { localizeServiceError, MAIN_COPY } from "./i18n.js";
 import { identityFromPlayerKey } from "./services/player-identity.js";
 import { PlayerKeyStore, type PlayerKeySet } from "./services/player-key-store.js";
-import { readInstallationMarker } from "./services/installer.js";
+import { lostWithLauncherFolder, readInstallationMarker } from "./services/installer.js";
 import {
   BASE_MANIFEST_URL,
   loadBaseManifest,
@@ -339,6 +343,12 @@ function recommendedDestinationPath(): string {
   return join(`${systemDrive}${sep}`, RECOMMENDED_INSTALL_PARENT_NAME, ROTK_INSTALL_DIRECTORY_NAME);
 }
 
+/** The installed launcher's own folder, which its updates delete; null in development. */
+async function installedLauncherFolder(): Promise<string | null> {
+  const folder = dirname(app.getPath("exe"));
+  return app.isPackaged ? realpath(folder).catch(() => resolve(folder)) : null;
+}
+
 /**
  * Pre-fill the ROTK destination with the recommended default so a detected or
  * freshly selected Steam client only needs one Install click. Best-effort: an
@@ -352,6 +362,7 @@ async function applyRecommendedDestination(): Promise<void> {
     const existing = await stat(candidate).catch(() => null);
     if (existing) return;
     destinationRoot = await validateInstallDestination(candidate, sourceRoot);
+    assertOutsideLauncherFolder(destinationRoot, await installedLauncherFolder());
     destinationRecommended = true;
     phase = "destination-selected";
   } catch {
@@ -883,7 +894,7 @@ function registerIpc(): void {
       try {
         const located = await locateSteamClient();
         if (!located) return { ok: true, value: { sourceRoot: null } };
-        const selectedClient = await classifyClientSource(located);
+        const selectedClient = await classifyClientSource(located, await installedLauncherFolder());
         sourceRoot = selectedClient.root;
         sourceKind = selectedClient.kind;
         sourceDetected = true;
@@ -917,7 +928,7 @@ function registerIpc(): void {
       });
       if (selected.canceled || selected.filePaths.length === 0) return { ok: false, cancelled: true };
       try {
-        const selectedClient = await classifyClientSource(selected.filePaths[0]);
+        const selectedClient = await classifyClientSource(selected.filePaths[0], await installedLauncherFolder());
         sourceRoot = selectedClient.root;
         sourceKind = selectedClient.kind;
         sourceDetected = false;
@@ -956,7 +967,9 @@ function registerIpc(): void {
         const candidate = basename(parent).toLocaleLowerCase("en-US") === ROTK_INSTALL_DIRECTORY_NAME.toLocaleLowerCase("en-US")
           ? parent
           : join(parent, ROTK_INSTALL_DIRECTORY_NAME);
-        destinationRoot = await validateInstallDestination(candidate, sourceRoot);
+        const validated = await validateInstallDestination(candidate, sourceRoot);
+        assertOutsideLauncherFolder(validated, await installedLauncherFolder());
+        destinationRoot = validated;
         destinationRecommended = false;
         phase = "destination-selected";
         lastErrorRaw = null;
@@ -1002,6 +1015,7 @@ function registerIpc(): void {
         const installationRoot = sourceKind === "direct"
           ? sourceRoot
           : destinationRoot as string;
+        const launcherFolder = await installedLauncherFolder();
         const marker = sourceKind === "direct"
           ? await adoptExistingClient({
               root: sourceRoot,
@@ -1009,6 +1023,7 @@ function registerIpc(): void {
               vivoxProxyPath: resolveBundledVivoxProxyPath(),
               vivoxRuntimePath: resolveBundledVivoxRuntimePath(),
               launcherVersion: app.getVersion(),
+              launcherFolder,
               onProgress,
             })
           : await installClient({
@@ -1018,6 +1033,7 @@ function registerIpc(): void {
               vivoxProxyPath: resolveBundledVivoxProxyPath(),
               vivoxRuntimePath: resolveBundledVivoxRuntimePath(),
               launcherVersion: app.getVersion(),
+              launcherFolder,
               signal: installAbortController.signal,
               onProgress,
             });
@@ -1392,7 +1408,9 @@ async function initialize(): Promise<void> {
       phase = "ready";
     } catch (error) {
       phase = "error";
-      lastErrorRaw = rawErrorMessage(error);
+      lastErrorRaw = await lostWithLauncherFolder(config.installation.root, await installedLauncherFolder())
+        ? "Le jeu était installé dans le dossier de ROTK Launcher, que chaque mise à jour ou désinstallation du launcher supprime. Si tu l’as déplacé, sélectionne-le à son nouvel emplacement ; sinon, réinstalle-le ailleurs, par exemple dans C:\\Games\\ROTK."
+        : rawErrorMessage(error);
     }
   }
   startupLog.mark("installation-checked", `phase=${phase}`);

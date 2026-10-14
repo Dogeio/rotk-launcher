@@ -32,6 +32,8 @@ Le launcher inspecte le chemin logique et physique sélectionné :
 
 Cette règle évite tout conflit avec la version live sans imposer une nouvelle copie à l’utilisateur qui possède déjà un client Alpha ou une installation indépendante.
 
+Le jeu ne peut pas non plus être placé dans le dossier d’installation du launcher (par défaut `C:\Program Files\ROTK Launcher`) ni dans l’un de ses sous-dossiers : chaque mise à jour, réinstallation ou désinstallation du launcher supprime ce dossier entier. Le launcher refuse donc cet emplacement, pour une copie comme pour un client utilisé directement ; l’emplacement proposé par défaut est `C:\Games\ROTK`.
+
 La validation porte aussi sur le chemin physique afin qu’une jonction ou un lien symbolique ne permette pas de contourner la règle. La copie passe par un dossier temporaire, vérifie les fichiers critiques en SHA-256 et n’est rendue active qu’après finalisation.
 
 Une installation terminée est mémorisée dans `%APPDATA%\ROTK Launcher\config.v1.json`, avec une copie de secours locale. Le même chemin canonique est utilisé par les versions suivantes du launcher ; les anciens dossiers de configuration connus sont migrés automatiquement. Le sélecteur du client ne réapparaît que si aucune installation valide n’a encore été enregistrée.
