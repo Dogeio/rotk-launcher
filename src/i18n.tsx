@@ -145,6 +145,7 @@ export interface Copy {
     detectedBadge: string;
     recommendedBadge: string;
     subfolderHint: string;
+    resumeHint: string;
     choose: string;
     cancelCopy: string;
     createInstall: string;
@@ -332,6 +333,7 @@ const COPY: Record<AppLocale, Copy> = {
       detectedBadge: "AUTO-DETECTED",
       recommendedBadge: "RECOMMENDED",
       subfolderHint: "A ROTK subfolder is created automatically in the chosen location — no need to create it yourself.",
+      resumeHint: "You can cancel or close the launcher: the copy picks up where it stopped.",
       choose: "CHOOSE",
       cancelCopy: "CANCEL",
       createInstall: "CREATE SEPARATE COPY",
@@ -348,7 +350,7 @@ const COPY: Record<AppLocale, Copy> = {
         scanning: "Scanning H1Z1 client",
         verifying: "SHA-256 verification",
         configuring: "Applying ROTK client configuration",
-        finalizing: "Atomic finalization",
+        finalizing: "Finishing the installation",
       },
     },
     activity: {
@@ -540,6 +542,7 @@ const COPY: Record<AppLocale, Copy> = {
       detectedBadge: "DÉTECTÉ AUTO",
       recommendedBadge: "RECOMMANDÉ",
       subfolderHint: "Un sous-dossier ROTK est créé automatiquement dans l’emplacement choisi — inutile de le créer toi-même.",
+      resumeHint: "Tu peux annuler ou fermer le launcher : la copie reprendra là où elle s’est arrêtée.",
       choose: "CHOISIR",
       cancelCopy: "ANNULER",
       createInstall: "CRÉER UNE COPIE SÉPARÉE",
@@ -556,7 +559,7 @@ const COPY: Record<AppLocale, Copy> = {
         scanning: "Analyse du client H1Z1",
         verifying: "Vérification SHA-256",
         configuring: "Application du client ROTK",
-        finalizing: "Finalisation atomique",
+        finalizing: "Finalisation de l’installation",
       },
     },
     activity: {
