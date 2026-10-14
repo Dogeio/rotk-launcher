@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, stat } from "node:fs/promises";
+import { mkdir, stat, statfs } from "node:fs/promises";
 import { join, basename, dirname, parse, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -21,6 +21,7 @@ import {
   type AssetSyncSummary,
   type AssetSyncWarning,
   type ClientSourceKind,
+  type InstallDrive,
   type LauncherPhase,
   type LauncherSnapshot,
   type OperationResult,
@@ -76,7 +77,7 @@ import {
   type ServerStatus,
 } from "./services/server-status.js";
 import { UpdateFeedService } from "./services/update-feed.js";
-import { AssetSyncService } from "./services/asset-sync.js";
+import { AssetSyncService, assetSyncInternals } from "./services/asset-sync.js";
 import { LauncherUpdateService } from "./services/launcher-update.js";
 import { launcherUpdateBlocksPlay } from "../shared/launcher-update.js";
 import electronUpdater from "electron-updater";
@@ -334,9 +335,43 @@ async function refreshServerStatus(): Promise<void> {
   await broadcastSnapshot();
 }
 
-function recommendedDestinationPath(): string {
-  const systemDrive = process.env.SystemDrive ?? "C:";
-  return join(`${systemDrive}${sep}`, RECOMMENDED_INSTALL_PARENT_NAME, ROTK_INSTALL_DIRECTORY_NAME);
+// Free space wanted before a drive is offered (~35 GB): the client copy
+// (~20 GB), the asset cache at its cap, and headroom for extraction and backups.
+const RECOMMENDED_FREE_BYTES = 20 * 1024 ** 3 + assetSyncInternals.MAX_TOTAL_ASSET_BYTES + 7 * 1024 ** 3;
+
+function destinationOnDrive(driveRoot: string): string {
+  return join(driveRoot, RECOMMENDED_INSTALL_PARENT_NAME, ROTK_INSTALL_DIRECTORY_NAME);
+}
+
+// A disconnected network drive can hold statfs for a long time, and each
+// pending call ties up a libuv thread: never start a second one per drive.
+const pendingDriveStats = new Map<string, Promise<Awaited<ReturnType<typeof statfs>> | null>>();
+
+async function statDrive(root: string): Promise<InstallDrive | null> {
+  let pending = pendingDriveStats.get(root);
+  if (!pending) {
+    pending = statfs(root).catch(() => null).finally(() => pendingDriveStats.delete(root));
+    pendingDriveStats.set(root, pending);
+  }
+  let timer: NodeJS.Timeout | undefined;
+  const disk = await Promise.race([
+    pending,
+    new Promise<null>((resolveTimeout) => { timer = setTimeout(() => resolveTimeout(null), 2_000); }),
+  ]);
+  clearTimeout(timer);
+  if (!disk || Number(disk.blocks) === 0) return null;
+  return {
+    root,
+    freeBytes: Number(disk.bavail) * Number(disk.bsize),
+    totalBytes: Number(disk.blocks) * Number(disk.bsize),
+  };
+}
+
+async function listInstallDrives(): Promise<InstallDrive[]> {
+  const drives = await Promise.all([..."CDEFGHIJKLMNOPQRSTUVWXYZ"].map((letter) => statDrive(`${letter}:\\`)));
+  // Too small or read-only (optical drives report 0 free): not worth offering.
+  return drives.filter((drive): drive is InstallDrive =>
+    drive !== null && drive.freeBytes >= RECOMMENDED_FREE_BYTES);
 }
 
 /** Validates a destination and refuses folders holding someone else's files. */
@@ -359,7 +394,13 @@ async function acceptDestination(candidate: string): Promise<string> {
 async function applyRecommendedDestination(): Promise<void> {
   if (sourceKind !== "copy-required" || !sourceRoot) return;
   const { pendingInstallRoot } = await configStore.load();
-  for (const candidate of [...(pendingInstallRoot ? [pendingInstallRoot] : []), recommendedDestinationPath()]) {
+  const drives = [...new Set([parse(sourceRoot).root, `${process.env.SystemDrive ?? "C:"}\\`].map(value => value.toUpperCase()))];
+  const candidates = [...(pendingInstallRoot ? [pendingInstallRoot] : [])];
+  for (const drive of drives) {
+    const details = await statDrive(drive);
+    if (details && details.freeBytes >= RECOMMENDED_FREE_BYTES) candidates.push(destinationOnDrive(drive));
+  }
+  for (const candidate of [...new Set(candidates)]) {
     try {
       destinationRoot = await acceptDestination(candidate);
       destinationRecommended = true;
@@ -1015,6 +1056,34 @@ function registerIpc(): void {
     trustedHandler(async () => {
       lastErrorRaw = null;
       await broadcastSnapshot();
+    }),
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.listInstallDrives,
+    trustedHandler(async () => listInstallDrives()),
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.chooseInstallDrive,
+    trustedHandler(async (_event, root: unknown): Promise<OperationResult<{ destinationRoot: string }>> => {
+      const copy = MAIN_COPY[currentLocale];
+      if (!sourceRoot) return { ok: false, error: copy.selectSourceFirst };
+      if (sourceKind !== "copy-required") return { ok: false, error: copy.destinationNotNeeded };
+      if (installAbortController) return { ok: false, error: copy.installationInProgress };
+      if (typeof root !== "string" || !/^[C-Z]:\\$/.test(root) || !(await statDrive(root))) {
+        return { ok: false, error: copy.driveUnavailable };
+      }
+      try {
+        destinationRoot = await acceptDestination(destinationOnDrive(root));
+        destinationRecommended = false;
+        phase = "destination-selected";
+        lastErrorRaw = null;
+        await broadcastSnapshot();
+        return { ok: true, value: { destinationRoot } };
+      } catch (error) {
+        return operationError<{ destinationRoot: string }>(error);
+      }
     }),
   );
 
