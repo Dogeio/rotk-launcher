@@ -59,6 +59,7 @@ import {
   validateInstalledClient,
   type AttestationOutcome,
 } from "./services/game-launcher.js";
+import type { InputProfileRecovery } from "./services/input-profile-recovery.js";
 import { HWID_CORE_SLOTS, collectHwid } from "./services/machine-identity.js";
 import { collectTpmProof } from "./services/tpm-identity.js";
 import { collectTpmAnchor, enrolTpmAnchor } from "./services/tpm-anchor.js";
@@ -183,6 +184,8 @@ let destinationRecommended = false;
 let progress: LauncherSnapshot["progress"] = null;
 let updates: LauncherSnapshot["updates"] = [];
 let lastErrorRaw: string | null = null;
+// Kept until dismissed or the next Play, so a failed launch cannot hide it.
+let inputProfileRecovery: InputProfileRecovery | null = null;
 // Set when the server refuses a launch for launcher_update_required: the update
 // becomes mandatory (Play is blocked) until a newer launcher is installed.
 let updateRequired = false;
@@ -689,6 +692,9 @@ async function snapshot(): Promise<LauncherSnapshot> {
       : null,
     progress,
     error: lastErrorRaw ? localizeServiceError(lastErrorRaw, currentLocale) : null,
+    notice: inputProfileRecovery
+      ? MAIN_COPY[currentLocale].inputProfile[inputProfileRecovery.restored ? "restored" : "reset"](inputProfileRecovery.damagedCopy)
+      : null,
     gamePid,
     updateRequired: updateRequired || launcherUpdateBlocksPlay(launcherUpdate.state),
     canPlay:
@@ -1066,7 +1072,9 @@ function registerIpc(): void {
   ipcMain.handle(
     IPC_CHANNELS.dismissError,
     trustedHandler(async () => {
-      lastErrorRaw = null;
+      // The renderer shows an error before a notice: close them in that order.
+      if (lastErrorRaw !== null) lastErrorRaw = null;
+      else inputProfileRecovery = null;
       await broadcastSnapshot();
     }),
   );
@@ -1213,6 +1221,7 @@ function registerIpc(): void {
       const launchRuntime = activeRuntime();
       phase = "launching";
       lastErrorRaw = null;
+      inputProfileRecovery = null;
       await broadcastSnapshot();
       // A discovered update must be fully downloaded and installed before
       // starting the game; launching with a partially updated asset set is unsafe.
@@ -1246,6 +1255,10 @@ function registerIpc(): void {
           // Best-effort hardware fingerprint; the server hashes it. A failure
           // must never block a launch, so it degrades to no HWID signal.
           fallbackHwid: () => collectHwid(),
+          onInputProfileRecovered: (recovery) => {
+            inputProfileRecovery = recovery;
+            void broadcastSnapshot();
+          },
           onExit: () => {
             gamePid = null;
             phase = "ready";
