@@ -309,7 +309,6 @@ describe("ROTK asset sync", () => {
     const sync = new AssetSyncService({
       userDataDirectory: userData,
       feedUrl: FEED_URL,
-      discoverReleaseAssets: false,
       fetchImpl: (async (input: RequestInfo | URL, init?: RequestInit) => {
         if (String(input) === FEED_URL) return new Response(JSON.stringify(manifest([entry])));
         const range = new Headers(init?.headers).get("range");
@@ -339,7 +338,6 @@ describe("ROTK asset sync", () => {
     const sync = new AssetSyncService({
       userDataDirectory: userData,
       feedUrl: FEED_URL,
-      discoverReleaseAssets: false,
       onProgress: (event) => progress.push(event),
       fetchImpl: (async (input: RequestInfo | URL, init?: RequestInit) => {
         if (String(input) === FEED_URL) return new Response(JSON.stringify(manifest([entry])));
@@ -371,7 +369,6 @@ describe("ROTK asset sync", () => {
     const sync = new AssetSyncService({
       userDataDirectory: userData,
       feedUrl: FEED_URL,
-      discoverReleaseAssets: false,
       fetchImpl: (async (input: RequestInfo | URL, init?: RequestInit) => {
         if (String(input) === FEED_URL) return new Response(JSON.stringify(manifest([entry])));
         const range = new Headers(init?.headers).get("range");
@@ -397,7 +394,6 @@ describe("ROTK asset sync", () => {
     const sync = new AssetSyncService({
       userDataDirectory: userData,
       feedUrl: FEED_URL,
-      discoverReleaseAssets: false,
       fetchImpl: (async (input: RequestInfo | URL) => {
         if (String(input) === FEED_URL) return new Response(JSON.stringify(manifest([entry])));
         downloads += 1;
@@ -417,7 +413,6 @@ describe("ROTK asset sync", () => {
     const sync = new AssetSyncService({
       userDataDirectory: userData,
       feedUrl: FEED_URL,
-      discoverReleaseAssets: false,
       fetchImpl: (async (input: RequestInfo | URL) => {
         if (String(input) === FEED_URL) return new Response(JSON.stringify(manifest([entry])));
         downloads += 1;

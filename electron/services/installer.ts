@@ -17,10 +17,7 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { retryFs } from "./fs-safe.js";
-import { constants as fsConstants } from "node:fs";
 import { basename, dirname, join, relative } from "node:path";
-import { pipeline } from "node:stream/promises";
-import { Transform } from "node:stream";
 import type { InstallProgress } from "../../shared/contracts.js";
 import {
   CRITICAL_CLIENT_FILES,

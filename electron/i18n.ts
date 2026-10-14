@@ -118,6 +118,7 @@ export const MAIN_COPY = {
     },
   },
   zh: {
+    driveUnavailable: "此磁盘不可用。",
     unexpectedError: "出现了意外错误。",
     installationCancelled: "安装已取消。",
     windowUnavailable: "启动器窗口不可用。",

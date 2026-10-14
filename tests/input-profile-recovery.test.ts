@@ -16,6 +16,7 @@ vi.mock("../electron/services/vivox-client.js", () => ({ deployVivoxCompatibilit
   assertVivoxCompatibility: async () => undefined }));
 vi.mock("../electron/services/gameplay-patch.js", () => ({ assertGameplayPatchState: async () => undefined }));
 vi.mock("../electron/services/client-config.js", () => ({ synchronizeClientConfig: (current: string) => current,
+  synchronizeGraphicsOptions: (current: string) => current,
   synchronizeUserOptions: (current: string) => current, GAME_LOCALE: { en: "en_us", fr: "en_us", zh: "en_us" },
   validateLocalCreateSessionUrl: (url: string) => url }));
 

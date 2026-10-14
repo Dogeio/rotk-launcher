@@ -726,7 +726,6 @@ export class AssetSyncService {
       const response = await this.fetchFollowingRedirects(
         asset.url,
         controller.signal,
-        ASSET_URL_HOSTS,
         offset > 0 ? { Range: `bytes=${offset}-`, "Accept-Encoding": "identity" } : undefined,
       );
       if (!response.body) throw new Error(`Téléchargement d’assets refusé (HTTP ${response.status}).`);

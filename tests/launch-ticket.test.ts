@@ -266,6 +266,7 @@ describe("ROTK launch ticket client", () => {
     const cancelled = vi.fn(async () => { throw new DOMException("aborted", "AbortError"); }) as unknown as typeof fetch;
     await expect(createLaunchTicket(launcherKey, endpoint, { fetchImpl: cancelled }))
       .rejects.toThrow("Unable to reach the ROTK account service (cancelled)");
+    expect(cancelled).toHaveBeenCalledTimes(1);
   });
 
   it("names the required version and keeps the update tag for a refused version", async () => {

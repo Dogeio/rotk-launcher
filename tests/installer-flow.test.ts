@@ -48,6 +48,7 @@ async function fixture() {
     vivoxProxyPath: "unused",
     vivoxRuntimePath: "unused",
     launcherVersion: "test",
+      launcherFolder: null,
     signal,
     onProgress,
   });

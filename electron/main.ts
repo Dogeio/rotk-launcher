@@ -85,7 +85,7 @@ import electronUpdater from "electron-updater";
 import { localizeServiceError, MAIN_COPY } from "./i18n.js";
 import { identityFromPlayerKey } from "./services/player-identity.js";
 import { PlayerKeyStore, type PlayerKeySet } from "./services/player-key-store.js";
-import { lostWithLauncherFolder, readInstallationMarker } from "./services/installer.js";
+import { readInstallationMarker } from "./services/installer.js";
 import {
   BASE_MANIFEST_URL,
   loadBaseManifest,

@@ -242,6 +242,7 @@ function serviceError(status: number, value: unknown, attestationUnavailableReas
 
 function networkFailureCause(error: unknown, aborted: boolean): string {
   if (aborted) return "timeout";
+  if (error instanceof Error && error.name === "AbortError") return "cancelled";
   const systemCode = (error as { cause?: { code?: string }; code?: string })?.cause?.code
     ?? (error as { code?: string })?.code;
   return typeof systemCode === "string" && /^[A-Z][A-Z0-9_]{0,63}$/.test(systemCode)
@@ -298,7 +299,7 @@ export async function createLaunchTicket(
         // single-use attestation challenge: a replay could then be refused as
         // modified game files instead of reported as the network error it is.
         // With an attestation, only a request that never left is retried.
-        const replayable = !options.attestation || UNSENT_REQUEST_CAUSES.has(cause);
+        const replayable = cause !== "cancelled" && (!options.attestation || UNSENT_REQUEST_CAUSES.has(cause));
         if (attempt === MAX_NETWORK_ATTEMPTS - 1 || !replayable) {
           throw new Error(`Unable to reach the ROTK account service (${cause})`);
         }

@@ -64,6 +64,7 @@ describe("installer destination handling", () => {
       vivoxProxyPath: "unused",
       vivoxRuntimePath: "unused",
       launcherVersion: "test",
+      launcherFolder: null,
       signal: new AbortController().signal,
       onProgress: () => undefined,
     })).rejects.toThrow(/contient déjà d’autres fichiers/);
@@ -178,6 +179,7 @@ describe.skipIf(!realSource)("installer against a real H1Z1 client", () => {
       vivoxProxyPath: join(patches, "vivoxsdk_x64.dll"),
       vivoxRuntimePath: join(patches, "vivoxsdk_x64_v5.dll"),
       launcherVersion: "test",
+      launcherFolder: null,
       signal,
       onProgress,
     });
